@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecodeLabs Finance - Create Account</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='signup.css') }}">
+</head>
+<body>
+    <main class="login-wrapper">
+        <article class="login-card">
+            <header class="login-header">
+                <div class="logo">DecodeLabs <span>Finance</span></div>
+                <p>Register DecodeLabs Finance</p>
+            </header>
+            
+            <form id="signup-form">
+                <div class="form-group">
+                    <label for="fullname">Full Name</label>
+                    <input type="text" id="fullname" placeholder="John Potts" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="developer@decodelabs.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Create Password</label>
+                    <input type="password" id="password" placeholder="••••••••" minlength="6" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm-password">Confirm Password</label>
+                    <input type="password" id="confirm-password" placeholder="••••••••" required>
+                </div>
+                
+                <p id="error-message" class="error-banner" style="display: none;"></p>
+                <p id="success-message" class="success-banner" style="display: none;">Account configured! Redirecting...</p>
+                
+                <button type="submit" class="btn-submit">Register</button>
+            </form>
+
+            <footer class="card-footer">
+                <p>Already have an account? <a href="/login">Authenticate here</a></p>
+            </footer>
+        </article>
+    </main>
+
+    <script>
+        document.getElementById('signup-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const fullname = document.getElementById('fullname')?.value.trim() || document.getElementById('name')?.value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const errorBanner = document.getElementById('error-message');
+            
+            if(errorBanner) errorBanner.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fullname, email, password })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert("Account created successfully! Redirecting to login workspace...");
+                    window.location.href = '/login';
+                } else {
+                    if(errorBanner) {
+                        errorBanner.textContent = result.error || "Signup validation dropped.";
+                        errorBanner.style.display = 'block';
+                    } else {
+                        alert(result.error);
+                    }
+                }
+            } catch (err) {
+                console.error("Critical API submission crash: ", err);
+                if(errorBanner) {
+                    errorBanner.textContent = "Server communication failure. Is Flask running?";
+                    errorBanner.style.display = 'block';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecodeLabs Finance - System Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="logo">DecodeLabs <span>Finance</span> | <small style="font-weight: 400; font-size: 0.85rem; color: #A5856F;">User: {{ user.fullname }}</small></div>
+        <nav class="main-nav">
+            <a href="/logout">LogOut</a>
+            <a href="/dashboard" class="active">Dashboard</a>
+            <a href="/budgets">Budgets</a>
+            <a href="/transactions">Transactions</a>
+        </nav>
+    </header>
+
+    <div class="app-layout">
+        <aside class="side-panel">
+            <h2>Add Transaction</h2>
+            <form id="transaction-form">
+                <div class="form-group">
+                    <label for="desc">Description</label>
+                    <input type="text" id="desc" placeholder="e.g., Target Grocery" required>
+                </div>
+                <div class="form-group">
+                    <label for="amount">Amount ($)</label>
+                    <input type="number" id="amount" step="0.01" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <label for="category">Allocation Category</label>
+                    <select id="category" required>
+                        <option value="Groceries">Groceries</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Others">Others</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Commit Entry Row</button>
+            </form>
+        </aside>
+
+        <main class="main-content">
+            <section class="hero-section">
+                <h1>Financial Runway Dashboard</h1>
+            </section>
+                
+            <div class="content-grid">
+                <article class="card budget-card">
+                    <h3>Active Budget Allocations</h3>
+                    
+                    <div class="budget-item">
+                        <div class="budget-meta">
+                            <span>Groceries</span>
+                            <span id="groceries-text">$0 / $300</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="groceries-progress" class="progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="budget-item">
+                        <div class="budget-meta">
+                            <span>Utilities</span>
+                            <span id="utilities-text">$0 / $150</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="utilities-progress" class="progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="budget-item">
+                        <div class="budget-meta">
+                            <span>Entertainment</span>
+                            <span id="entertainment-text">$0 / $100</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="entertainment-progress" class="progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="budget-item">
+                        <div class="budget-meta">
+                            <span>Others</span>
+                            <span id="others-text">$0 / $50</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="others-progress" class="progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="card ledger-card">
+                    <h3>Recent Outflows (Last 5 Items)</h3>
+                    <ul id="transaction-list" class="transaction-list"></ul>
+                </article>
+            </div>
+        </main>
+    </div>
+
+    <footer class="main-footer">
+        <p>&copy; 2026 DecodeLabs Internship Program</p>
+    </footer>
+
+    <script>
+        const defaultLimits = { groceries: 300, utilities: 150, entertainment: 100, others: 50 };
+
+        async function syncDashboardData() {
+            try {
+                const budgetRes = await fetch('/api/budgets');
+                const budgetData = await budgetRes.json();
+                const currentLimits = { ...defaultLimits };
+                
+                (budgetData.budgets || []).forEach(b => {
+                    if (b.category) currentLimits[b.category.toLowerCase()] = parseFloat(b.limit);
+                });
+
+                const txRes = await fetch('/api/transactions');
+                const txData = await txRes.json();
+                const txs = txData.transactions || [];
+
+                const spentMap = { groceries: 0, utilities: 0, entertainment: 0, others: 0 };
+
+                txs.forEach(tx => {
+                    const cat = (tx.category || 'others').toLowerCase();
+                    if (spentMap.hasOwnProperty(cat)) {
+                        spentMap[cat] += parseFloat(tx.amount || 0);
+                    } else {
+                        spentMap['others'] += parseFloat(tx.amount || 0);
+                    }
+                });
+
+                Object.keys(spentMap).forEach(category => {
+                    const spent = spentMap[category];
+                    const limit = currentLimits[category];
+                    const textElement = document.getElementById(`${category}-text`);
+                    const progressElement = document.getElementById(`${category}-progress`);
+
+                    if (textElement && progressElement) {
+                        textElement.innerHTML = `$${spent.toFixed(2)} / <strong>$${limit.toFixed(2)}</strong>`;
+                        const percentage = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
+                        progressElement.style.width = `${percentage}%`;
+                        
+                        if (percentage >= 100) progressElement.style.backgroundColor = '#d9534f';
+                        else progressElement.style.backgroundColor = '';
+                    }
+                });
+
+                const containerList = document.getElementById('transaction-list');
+                containerList.innerHTML = "";
+                const recentItems = txs.slice(-5).reverse();
+
+                if (recentItems.length === 0) {
+                    containerList.innerHTML = `<li style="padding: 10px 0; color: #888; font-size: 0.9rem;">No data entries tracked yet.</li>`;
+                    return;
+                }
+
+                recentItems.forEach(tx => {
+                    const item = `<li style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; font-size: 0.95rem;">
+                        <span><strong>${tx.title}</strong> <small style="color: #666; margin-left: 8px;">(${tx.category})</small></span>
+                        <span style="font-weight: 600; color: #A5856F;">-$${parseFloat(tx.amount).toFixed(2)}</span>
+                    </li>`;
+                    containerList.insertAdjacentHTML('beforeend', item);
+                });
+
+            } catch (err) {
+                console.error("Dashboard engine out of sync:", err);
+            }
+        }
+        document.getElementById('transaction-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const title = document.getElementById('desc').value.trim();
+            const amount = document.getElementById('amount').value;
+            const category = document.getElementById('category').value;
+
+            const response = await fetch('/api/transactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title, amount, category })
+            });
+
+            if (response.ok) {
+                document.getElementById('transaction-form').reset();
+                syncDashboardData(); 
+            }
+        });
+        window.onload = syncDashboardData;
+    </script>
+</body>
+</html>

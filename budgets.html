@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecodeLabs Finance - Budgets</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='budgets.css') }}">
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="logo">DecodeLabs <span>Finance</span> | <small style="font-weight: 400; font-size: 0.85rem; color: #A5856F;">User: {{ user.fullname }}</small></div>
+        <nav class="main-nav">
+            <a href="/logout">LogOut</a>
+            <a href="/dashboard">Dashboard</a>
+            <a href="/budgets" class="active">Budgets</a>
+            <a href="/transactions">Transactions</a>
+        </nav>
+    </header>
+
+    <div class="app-layout">
+        <aside class="side-panel">
+            <h2>Set Target Thresholds</h2>
+            <form id="budget-cap-form">
+                <div class="form-group">
+                    <label for="budget-category">Target Category</label>
+                    <select id="budget-category" required>
+                        <option value="Groceries">Groceries</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Entertainment">Entertainment</option>
+                        <option value="Others">Others</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="cap-amount">Spending Limit ($)</label>
+                    <input type="number" id="cap-amount" step="1" placeholder="e.g., 400" required>
+                </div>
+                <button type="submit" class="btn-primary">Re-Configure Ceiling</button>
+            </form>
+        </aside>
+
+        <main class="main-content">
+            <section class="hero-section">
+                <h1>Budget Guardrails</h1>
+                <p>Modify limits changes update the graphs across pages in real-time.</p>
+            </section>
+
+            <div class="content-grid">
+                <article class="card">
+                    <h3>Synchronized Allocation Overviews</h3>
+                    
+                    <div class="budget-item">
+                        <div class="budget-meta">
+                            <span>Groceries</span>
+                            <span id="groceries-text">$0 / $300</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="groceries-progress" class="progress-fill"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="budget-item">
+                        <div class="budget-meta">
+                            <span>Utilities</span>
+                            <span id="utilities-text">$0 / $150</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="utilities-progress" class="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="budget-item">
+                        <div class="budget-meta">
+                            <span>Entertainment</span>
+                            <span id="entertainment-text">$0 / $100</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="entertainment-progress" class="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="budget-item">
+                        <div class="budget-meta">
+                            <span>Others</span>
+                            <span id="others-text">$0 / $50</span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="others-progress" class="progress-fill"></div>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </main>
+    </div>
+
+    <footer class="main-footer">
+        <p>&copy; 2026 DecodeLabs Internship Program</p>
+    </footer>
+
+    <script>
+        const defaultLimits = { groceries: 300, utilities: 150, entertainment: 100, others: 50 };
+
+        async function syncBudgetsPageData() {
+            try {
+                const budgetRes = await fetch('/api/budgets');
+                const budgetData = await budgetRes.json();
+                const currentLimits = { ...defaultLimits };
+                
+                (budgetData.budgets || []).forEach(b => {
+                    if (b.category) currentLimits[b.category.toLowerCase()] = parseFloat(b.limit);
+                });
+
+                const txRes = await fetch('/api/transactions');
+                const txData = await txRes.json();
+                const spentMap = { groceries: 0, utilities: 0, entertainment: 0, others: 0 };
+
+                (txData.transactions || []).forEach(tx => {
+                    const cat = (tx.category || 'others').toLowerCase();
+                    if (spentMap.hasOwnProperty(cat)) spentMap[cat] += parseFloat(tx.amount || 0);
+                    else spentMap['others'] += parseFloat(tx.amount || 0);
+                });
+
+
+                ['groceries', 'utilities', 'entertainment', 'others'].forEach(cat => {
+                    const textElement = document.getElementById(`${cat}-text`);
+                    const progressElement = document.getElementById(`${cat}-progress`);
+
+                    if (textElement && progressElement) {
+                        const spent = spentMap[cat];
+                        const limit = currentLimits[cat];
+
+                        textElement.innerHTML = `$${spent.toFixed(2)} / <strong>$${limit.toFixed(2)}</strong>`;
+                        const percentage = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
+                        progressElement.style.width = `${percentage}%`;
+
+                        if (percentage >= 100) progressElement.style.backgroundColor = '#d9534f';
+                        else progressElement.style.backgroundColor = '';
+                    }
+                });
+            } catch (err) {
+                console.error("Budget synchronization error:", err);
+            }
+        }
+
+        document.getElementById('budget-cap-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const category = document.getElementById('budget-category').value;
+            const limit = document.getElementById('cap-amount').value;
+
+            const response = await fetch('/api/budgets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category, limit })
+            });
+
+            if (response.ok) {
+                document.getElementById('budget-cap-form').reset();
+                syncBudgetsPageData();
+            }
+        });
+
+        window.onload = syncBudgetsPageData;
+    </script>
+</body>
+</html>

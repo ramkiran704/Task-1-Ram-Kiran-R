@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecodeLabs Finance - Access Gateway</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+    <style>
+        .card-footer {
+            text-align: center;
+            margin-top: 1.75rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid #eef0ed;
+            font-size: 0.85rem;
+        }
+        .card-footer a {
+            color: #A5856F; 
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        .card-footer a:hover {
+            text-decoration: underline;
+            color: #8c6f5b;
+        }
+    </style>
+</head>
+<body>
+    <main class="login-wrapper">
+        <article class="login-card">
+            <header class="login-header">
+                <div class="logo">DecodeLabs <span>Finance</span></div>
+                <p>Login DecodeLabs Finance</p>
+            </header>
+            
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" placeholder="developer@decodelabs.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Access Password</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+                
+                <p id="error-message" class="error-banner" style="display: none;">Invalid validation credentials.</p>
+                
+                <button type="submit" class="btn-submit">LogIn</button>
+            </form>
+
+            <footer class="card-footer">
+                <p>Don't have an account? <a href="/signup">Create Account</a></p>
+            </footer>
+        </article>
+    </main>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const errorBanner = document.getElementById('error-message');
+            
+            errorBanner.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.ok) {
+
+                    window.location.href = '/dashboard';
+                } else {
+                    const result = await response.json();
+                    errorBanner.textContent = result.error || "Invalid validation credentials.";
+                    errorBanner.style.display = 'block';
+                }
+            } catch (err) {
+                console.error("Authentication submission breakdown: ", err);
+                errorBanner.textContent = "Data connection error. Server unreachable.";
+                errorBanner.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
